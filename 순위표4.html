@@ -48,7 +48,6 @@ body {
     margin: 8px 0;
     padding: 8px;
     border-radius: 10px;
-    transition: transform 0.5s ease;
 }
 
 .top {
@@ -74,7 +73,7 @@ body {
 }
 
 .score {
-    width: 120px;
+    width: 140px;
     text-align: right;
 }
 
@@ -132,37 +131,32 @@ let prevTop = null;
 let audioCtx = null;
 let soundEnabled = false;
 
-// 🎵 mp3 사운드
 const soundFiles = [
     "https://cdn.pixabay.com/download/audio/2022/03/15/audio_115b9b7dbe.mp3",
     "https://cdn.pixabay.com/download/audio/2022/03/10/audio_270d98c7e8.mp3",
     "https://cdn.pixabay.com/download/audio/2021/08/04/audio_884fe92c94.mp3"
 ];
 
-// 🔊 사운드 활성화 (필수)
 function enableSound(){
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     soundEnabled = true;
     alert("🔊 사운드 활성화됨!");
 }
 
-// 🔊 사운드 재생
 async function playSound(){
     if(!soundEnabled) return;
 
     const url = soundFiles[Math.floor(Math.random()*soundFiles.length)];
-
     const res = await fetch(url);
-    const arrayBuffer = await res.arrayBuffer();
-    const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+    const buf = await res.arrayBuffer();
+    const audioBuffer = await audioCtx.decodeAudioData(buf);
 
-    const source = audioCtx.createBufferSource();
-    source.buffer = audioBuffer;
-    source.connect(audioCtx.destination);
-    source.start(0);
+    const src = audioCtx.createBufferSource();
+    src.buffer = audioBuffer;
+    src.connect(audioCtx.destination);
+    src.start(0);
 }
 
-// 🎆 폭죽
 function showFirework(){
     const fw = document.createElement("div");
     fw.className = "firework";
@@ -174,47 +168,51 @@ function showFirework(){
     setTimeout(()=>fw.remove(),1000);
 }
 
-// 전체화면
 function toggleFullscreen(){
     if (!document.fullscreenElement)
         document.documentElement.requestFullscreen();
     else document.exitFullscreen();
 }
 
-// 데이터 추가
+// ⭐ ID 기반 추가
 function addData(){
     const name = nameInput.value.trim();
     const steps = parseInt(stepInput.value);
 
     if(!name || isNaN(steps)) return;
 
-    let existing = data.find(d=>d.name===name);
+    const newItem = {
+        id: Date.now() + Math.random(), // 고유 ID
+        name: name,
+        steps: steps
+    };
 
-    if(existing){
-        existing.steps = steps;
-        latest = existing;
-    } else {
-        let obj = {name,steps};
-        data.push(obj);
-        latest = obj;
-    }
+    data.push(newItem);
+    latest = newItem;
+
+    nameInput.value = "";
+    stepInput.value = "";
 
     render();
 }
 
-// 렌더
+// ⭐ ID로 삭제
+function deleteData(id){
+    data = data.filter(d => d.id !== id);
+    render();
+}
+
 function render(){
     const box = document.getElementById("rankList");
     box.innerHTML = "";
 
     data.sort((a,b)=>b.steps-a.steps);
 
-    // 🏆 1등 변경 감지
-    if(prevTop && data[0] && prevTop !== data[0].name){
+    if(prevTop && data[0] && prevTop !== data[0].id){
         showFirework();
     }
 
-    if(data[0]) prevTop = data[0].name;
+    if(data[0]) prevTop = data[0].id;
 
     data.forEach((d,i)=>{
         const div = document.createElement("div");
@@ -232,13 +230,14 @@ function render(){
                 ${d.steps}걸음<br>
                 상위 ${percent}%
             </div>
+            <button onclick="deleteData('${d.id}')">❌</button>
         `;
 
         box.appendChild(div);
     });
 
     if(latest){
-        const rank = data.findIndex(d=>d===latest)+1;
+        const rank = data.findIndex(d=>d.id===latest.id)+1;
         const percent = ((rank/data.length)*100).toFixed(0);
 
         latestBox.innerText =
